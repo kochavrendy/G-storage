@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>G-storage | ゴジラカード管理</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="bg"></div>
+  <header class="topbar">
+    <h1>G-storage</h1>
+    <p>ゴジラカードゲームの所持カード管理ツール</p>
+  </header>
+
+  <main class="layout">
+    <section class="panel filters">
+      <h2>検索・フィルター</h2>
+      <div class="field">
+        <label for="search">キーワード</label>
+        <input id="search" type="text" placeholder="カード名 / 型番で検索" />
+      </div>
+      <div class="grid2">
+        <div class="field">
+          <label for="setFilter">弾</label>
+          <select id="setFilter"><option value="">すべて</option></select>
+        </div>
+        <div class="field">
+          <label for="colorFilter">色</label>
+          <select id="colorFilter"><option value="">すべて</option></select>
+        </div>
+        <div class="field">
+          <label for="typeFilter">タイプ</label>
+          <select id="typeFilter"><option value="">すべて</option></select>
+        </div>
+        <div class="field">
+          <label for="gradeFilter">等級</label>
+          <select id="gradeFilter"><option value="">すべて</option></select>
+        </div>
+        <div class="field">
+          <label for="sortBy">並び順</label>
+          <select id="sortBy">
+            <option value="id">型番</option>
+            <option value="name">カード名</option>
+            <option value="power">パワー</option>
+            <option value="owned">所持枚数</option>
+          </select>
+        </div>
+      </div>
+      <div id="setThumbs" class="set-thumbs"></div>
+      <div class="actions">
+        <button id="resetFilters">フィルター解除</button>
+      </div>
+    </section>
+
+    <section class="panel stats">
+      <h2>コレクション状況</h2>
+      <div class="stat-grid">
+        <div><span id="totalCards">0</span><small>登録カード種類</small></div>
+        <div><span id="ownedKinds">0</span><small>所持カード種類</small></div>
+        <div><span id="ownedCopies">0</span><small>所持総枚数</small></div>
+        <div><span id="completion">0%</span><small>収集率</small></div>
+      </div>
+      <div class="actions">
+        <button id="exportBtn">バックアップ書き出し</button>
+        <label class="file-input">復元<input id="importInput" type="file" accept="application/json" /></label>
+      </div>
+    </section>
+
+    <section class="panel deck-panel">
+      <div class="list-header">
+        <h2>デッキ作成</h2>
+        <button id="clearDeckBtn" class="danger">デッキを初期化</button>
+      </div>
+      <p class="deck-rule">怪獣デッキ: 等級1〜4の怪獣を各1枚(計4枚) / メインデッキ: 50枚まで（進攻2は10枚以下）</p>
+      <div class="deck-grid">
+        <div class="deck-box">
+          <h3>怪獣デッキ <span id="kaijuSummary">0/4</span></h3>
+          <ul id="kaijuDeckList" class="deck-list"></ul>
+        </div>
+        <div class="deck-box">
+          <h3>メインデッキ <span id="mainSummary">0/50 (進攻2:0/10)</span></h3>
+          <ul id="mainDeckList" class="deck-list"></ul>
+        </div>
+      </div>
+      <p id="deckMessage" class="deck-message"></p>
+    </section>
+
+    <section class="panel list-panel">
+      <div class="list-header">
+        <h2>カード一覧</h2>
+        <p id="resultsInfo">0 件</p>
+      </div>
+      <div id="cardGrid" class="card-grid"></div>
+    </section>
+  </main>
+
+  <dialog id="imageModal" class="image-modal">
+    <button id="closeModal" class="modal-close">×</button>
+    <img id="modalImage" alt="拡大画像" />
+  </dialog>
+
+  <template id="cardTemplate">
+    <article class="card-item">
+      <img class="card-image" alt="" loading="lazy" />
+      <div class="card-body">
+        <h3 class="card-title"></h3>
+        <p class="card-id"></p>
+        <p class="meta"></p>
+        <p class="text"></p>
+        <div class="qty-row">
+          <button class="minus" type="button">−</button>
+          <input class="qty" type="number" min="0" step="1" value="0" />
+          <button class="plus" type="button">＋</button>
+        </div>
+        <div class="deck-actions">
+          <button class="add-kaiju" type="button">怪獣デッキに追加</button>
+          <button class="add-main" type="button">メインに追加</button>
+        </div>
+      </div>
+    </article>
+  </template>
+
+  <script src="card_meta.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

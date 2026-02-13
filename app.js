@@ -1,75 +1,5 @@
 const STORAGE_KEY = 'g-storage-owned-v1';
-const DECK_STORAGE_KEY = 'g-storage-decks-v1';
-const COLOR_ORDER = { 赤: 0, 青: 1, 緑: 2, 白: 3 };
 
-function normalizeId(id = '') {
-  return id.replace(/ol$/, '');
-}
-
-function getSetCode(id = '') {
-  const m = normalizeId(id).match(/^[A-Z]+\d+/);
-  return m ? m[0] : 'その他';
-}
-
-function sortDeckCards(a, b) {
-  const gradeA = Number(a.grade || 999);
-  const gradeB = Number(b.grade || 999);
-  if (gradeA !== gradeB) return gradeA - gradeB;
-  const colorA = COLOR_ORDER[a.color] ?? 99;
-  const colorB = COLOR_ORDER[b.color] ?? 99;
-  if (colorA !== colorB) return colorA - colorB;
-  return a.id.localeCompare(b.id, 'ja');
-}
-
-function buildCards(meta) {
-  const byBaseId = new Map();
-  Object.values(meta || {}).forEach(card => {
-    const baseId = normalizeId(card.id);
-    const existing = byBaseId.get(baseId);
-    if (!existing || existing.id.endsWith('ol')) {
-      byBaseId.set(baseId, { ...card, id: baseId, setCode: getSetCode(baseId) });
-    }
-  });
-  return [...byBaseId.values()];
-}
-
-function normalizeOwned(rawOwned) {
-  const normalized = {};
-  Object.entries(rawOwned || {}).forEach(([id, qty]) => {
-    const baseId = normalizeId(id);
-    normalized[baseId] = (normalized[baseId] || 0) + (Number(qty) || 0);
-  });
-  return normalized;
-}
-
-function normalizeDeck(rawDeck = {}) {
-  const norm = { kaiju: {}, main: {} };
-  for (const key of ['kaiju', 'main']) {
-    Object.entries(rawDeck[key] || {}).forEach(([id, qty]) => {
-      const baseId = normalizeId(id);
-      norm[key][baseId] = (norm[key][baseId] || 0) + (Number(qty) || 0);
-    });
-  }
-  return norm;
-}
-
-const state = {
-  cards: buildCards(window.CARD_META || {}),
-  owned: normalizeOwned(JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}')),
-  search: '',
-  setCode: '',
-  color: '',
-  type: '',
-  grade: '',
-  sortBy: 'id',
-  deck: normalizeDeck(JSON.parse(localStorage.getItem(DECK_STORAGE_KEY) || '{}'))
-};
-
-const cardById = new Map(state.cards.map(card => [card.id, card]));
-
-const el = {
-  search: document.getElementById('search'),
-  setFilter: document.getElementById('setFilter'),
   colorFilter: document.getElementById('colorFilter'),
   typeFilter: document.getElementById('typeFilter'),
   gradeFilter: document.getElementById('gradeFilter'),
@@ -83,17 +13,6 @@ const el = {
   ownedCopies: document.getElementById('ownedCopies'),
   completion: document.getElementById('completion'),
   exportBtn: document.getElementById('exportBtn'),
-  importInput: document.getElementById('importInput'),
-  imageModal: document.getElementById('imageModal'),
-  modalImage: document.getElementById('modalImage'),
-  closeModal: document.getElementById('closeModal'),
-  kaijuDeckList: document.getElementById('kaijuDeckList'),
-  mainDeckList: document.getElementById('mainDeckList'),
-  kaijuSummary: document.getElementById('kaijuSummary'),
-  mainSummary: document.getElementById('mainSummary'),
-  deckMessage: document.getElementById('deckMessage'),
-  clearDeckBtn: document.getElementById('clearDeckBtn')
-};
 
 function unique(list) {
   return [...new Set(list.filter(Boolean))];
@@ -108,26 +27,7 @@ function fillSelect(select, values) {
   });
 }
 
-function initFilters() {
-  fillSelect(el.setFilter, unique(state.cards.map(c => c.setCode)).sort());
-  fillSelect(el.colorFilter, unique(state.cards.map(c => c.color)).sort());
-  fillSelect(el.typeFilter, unique(state.cards.map(c => c.type)).sort());
-  fillSelect(el.gradeFilter, unique(state.cards.map(c => c.grade).filter(Boolean)).sort((a, b) => a - b));
-}
 
-function saveOwned() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state.owned));
-}
-
-function saveDeck() {
-  localStorage.setItem(DECK_STORAGE_KEY, JSON.stringify(state.deck));
-}
-
-function setOwned(id, qty) {
-  const baseId = normalizeId(id);
-  state.owned[baseId] = Math.max(0, Number(qty) || 0);
-  if (state.owned[baseId] === 0) delete state.owned[baseId];
-  saveOwned();
   renderStats();
 }
 
@@ -135,6 +35,8 @@ function findImagePath(id) {
   const baseId = normalizeId(id);
   const direct = `カードリスト/${baseId}.png`;
   const alt = `カードリスト/${baseId}ol.png`;
+  const direct = `カードリスト/${id}.png`;
+  const alt = `カードリスト/${id.replace(/ol$/, '')}ol.png`;
   return [direct, alt, 'カードリスト/裏面.png'];
 }
 
@@ -278,6 +180,9 @@ function render() {
     node.querySelector('.card-title').textContent = card.name;
     node.querySelector('.card-id').textContent = card.id;
     node.querySelector('.meta').textContent = `${card.setCode} / ${card.color} / ${card.type} / 等級${card.grade ?? '-'} / ${card.power ?? 0}`;
+
+    node.querySelector('.card-title').textContent = `${card.name} [${card.id}]`;
+    node.querySelector('.meta').textContent = `${card.color} / ${card.type} / 等級${card.grade ?? '-'} / ${card.power ?? 0}`;
     node.querySelector('.text').textContent = card.text || 'テキストなし';
 
     const qtyInput = node.querySelector('.qty');
@@ -333,6 +238,9 @@ function bindEvents() {
     state.sortBy = 'id';
     el.search.value = '';
     el.setFilter.value = '';
+    state.search = state.color = state.type = state.grade = '';
+    state.sortBy = 'id';
+    el.search.value = '';
     el.colorFilter.value = '';
     el.typeFilter.value = '';
     el.gradeFilter.value = '';
@@ -346,6 +254,9 @@ function bindEvents() {
       exportedAt: new Date().toISOString(),
       owned: state.owned,
       deck: state.deck
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      owned: state.owned
     };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const a = document.createElement('a');
@@ -367,6 +278,9 @@ function bindEvents() {
       saveDeck();
       render();
       renderDeck();
+      state.owned = data.owned;
+      save();
+      render();
       alert('復元しました');
     } catch {
       alert('復元に失敗しました。JSON形式を確認してください。');

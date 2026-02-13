@@ -22,7 +22,10 @@
       </div>
       <div class="grid2">
         <div class="field">
-
+          <label for="setFilter">弾</label>
+          <select id="setFilter"><option value="">すべて</option></select>
+        </div>
+        <div class="field">
           <label for="colorFilter">色</label>
           <select id="colorFilter"><option value="">すべて</option></select>
         </div>
@@ -44,6 +47,7 @@
           </select>
         </div>
       </div>
+      <div id="setThumbs" class="set-thumbs"></div>
       <div class="actions">
         <button id="resetFilters">フィルター解除</button>
       </div>
@@ -63,6 +67,24 @@
       </div>
     </section>
 
+    <section class="panel deck-panel">
+      <div class="list-header">
+        <h2>デッキ作成</h2>
+        <button id="clearDeckBtn" class="danger">デッキを初期化</button>
+      </div>
+      <p class="deck-rule">怪獣デッキ: 等級1〜4の怪獣を各1枚(計4枚) / メインデッキ: 50枚まで（進攻2は10枚以下）</p>
+      <div class="deck-grid">
+        <div class="deck-box">
+          <h3>怪獣デッキ <span id="kaijuSummary">0/4</span></h3>
+          <ul id="kaijuDeckList" class="deck-list"></ul>
+        </div>
+        <div class="deck-box">
+          <h3>メインデッキ <span id="mainSummary">0/50 (進攻2:0/10)</span></h3>
+          <ul id="mainDeckList" class="deck-list"></ul>
+        </div>
+      </div>
+      <p id="deckMessage" class="deck-message"></p>
+    </section>
 
     <section class="panel list-panel">
       <div class="list-header">
@@ -73,13 +95,17 @@
     </section>
   </main>
 
+  <dialog id="imageModal" class="image-modal">
+    <button id="closeModal" class="modal-close">×</button>
+    <img id="modalImage" alt="拡大画像" />
+  </dialog>
 
   <template id="cardTemplate">
     <article class="card-item">
       <img class="card-image" alt="" loading="lazy" />
       <div class="card-body">
         <h3 class="card-title"></h3>
-in
+        <p class="card-id"></p>
         <p class="meta"></p>
         <p class="text"></p>
         <div class="qty-row">
@@ -87,7 +113,10 @@ in
           <input class="qty" type="number" min="0" step="1" value="0" />
           <button class="plus" type="button">＋</button>
         </div>
-
+        <div class="deck-actions">
+          <button class="add-kaiju" type="button">怪獣デッキに追加</button>
+          <button class="add-main" type="button">メインに追加</button>
+        </div>
       </div>
     </article>
   </template>

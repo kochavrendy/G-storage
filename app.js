@@ -1,17 +1,5 @@
 const STORAGE_KEY = 'g-storage-owned-v1';
 
-const state = {
-  cards: Object.values(window.CARD_META || {}),
-  owned: JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}'),
-  search: '',
-  color: '',
-  type: '',
-  grade: '',
-  sortBy: 'id'
-};
-
-const el = {
-  search: document.getElementById('search'),
   colorFilter: document.getElementById('colorFilter'),
   typeFilter: document.getElementById('typeFilter'),
   gradeFilter: document.getElementById('gradeFilter'),
@@ -25,14 +13,6 @@ const el = {
   ownedCopies: document.getElementById('ownedCopies'),
   completion: document.getElementById('completion'),
   exportBtn: document.getElementById('exportBtn'),
-  importInput: document.getElementById('importInput')
-};
-
-function initFilters() {
-  fillSelect(el.colorFilter, unique(state.cards.map(c => c.color)).sort());
-  fillSelect(el.typeFilter, unique(state.cards.map(c => c.type)).sort());
-  fillSelect(el.gradeFilter, unique(state.cards.map(c => c.grade).filter(Boolean)).sort((a, b) => a - b));
-}
 
 function unique(list) {
   return [...new Set(list.filter(Boolean))];
@@ -47,18 +27,14 @@ function fillSelect(select, values) {
   });
 }
 
-function save() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state.owned));
-}
 
-function setOwned(id, qty) {
-  state.owned[id] = Math.max(0, Number(qty) || 0);
-  if (state.owned[id] === 0) delete state.owned[id];
-  save();
   renderStats();
 }
 
 function findImagePath(id) {
+  const baseId = normalizeId(id);
+  const direct = `カードリスト/${baseId}.png`;
+  const alt = `カードリスト/${baseId}ol.png`;
   const direct = `カードリスト/${id}.png`;
   const alt = `カードリスト/${id.replace(/ol$/, '')}ol.png`;
   return [direct, alt, 'カードリスト/裏面.png'];
@@ -67,6 +43,7 @@ function findImagePath(id) {
 function filterCards() {
   const kw = state.search.trim().toLowerCase();
   let list = state.cards.filter(card => {
+    if (state.setCode && card.setCode !== state.setCode) return false;
     if (state.color && card.color !== state.color) return false;
     if (state.type && card.type !== state.type) return false;
     if (state.grade && String(card.grade) !== state.grade) return false;
@@ -83,6 +60,99 @@ function filterCards() {
   });
 
   return list;
+}
+
+function getDeckCount(deckMap) {
+  return Object.values(deckMap).reduce((sum, v) => sum + Number(v || 0), 0);
+}
+
+function getAdvance2Count() {
+  return Object.entries(state.deck.main).reduce((sum, [id, qty]) => {
+    const card = cardById.get(id);
+    return sum + ((card?.advance === 2) ? Number(qty || 0) : 0);
+  }, 0);
+}
+
+function setDeckMessage(msg = '') {
+  el.deckMessage.textContent = msg;
+}
+
+function addToKaijuDeck(card) {
+  if (!String(card.type).includes('怪獣')) return setDeckMessage('怪獣デッキには怪獣カードのみ追加できます。');
+  if (![1, 2, 3, 4].includes(Number(card.grade))) return setDeckMessage('怪獣デッキは等級1〜4のみです。');
+
+  const currentEntries = Object.entries(state.deck.kaiju).filter(([, v]) => v > 0);
+  if (currentEntries.some(([id]) => Number(cardById.get(id)?.grade) === Number(card.grade) && id !== card.id)) {
+    return setDeckMessage(`等級${card.grade}は既に登録済みです。`);
+  }
+  if (state.deck.kaiju[card.id] >= 1) return setDeckMessage('同一カードは怪獣デッキに1枚までです。');
+  if (getDeckCount(state.deck.kaiju) >= 4) return setDeckMessage('怪獣デッキは4枚までです。');
+
+  state.deck.kaiju[card.id] = 1;
+  saveDeck();
+  setDeckMessage(`${card.name} を怪獣デッキに追加しました。`);
+  renderDeck();
+}
+
+function addToMainDeck(card) {
+  const total = getDeckCount(state.deck.main);
+  if (total >= 50) return setDeckMessage('メインデッキは50枚までです。');
+
+  const adv2 = getAdvance2Count();
+  if (Number(card.advance) === 2 && adv2 >= 10) return setDeckMessage('進攻2カードは10枚以下です。');
+
+  state.deck.main[card.id] = (state.deck.main[card.id] || 0) + 1;
+  saveDeck();
+  setDeckMessage(`${card.name} をメインデッキに追加しました。`);
+  renderDeck();
+}
+
+function removeFromDeck(kind, id) {
+  if (!state.deck[kind][id]) return;
+  state.deck[kind][id] -= 1;
+  if (state.deck[kind][id] <= 0) delete state.deck[kind][id];
+  saveDeck();
+  renderDeck();
+}
+
+function renderDeckList(target, deckMap, kind) {
+  target.innerHTML = '';
+  const entries = Object.entries(deckMap)
+    .filter(([, qty]) => qty > 0)
+    .map(([id, qty]) => ({ card: cardById.get(id), qty }))
+    .filter(entry => entry.card)
+    .sort((a, b) => sortDeckCards(a.card, b.card));
+
+  if (!entries.length) {
+    const li = document.createElement('li');
+    li.textContent = '未登録';
+    target.appendChild(li);
+    return;
+  }
+
+  entries.forEach(({ card, qty }) => {
+    const li = document.createElement('li');
+    li.innerHTML = `<span>等級${card.grade} / ${card.color} / ${card.id} ${card.name} ×${qty}</span>`;
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'deck-remove';
+    btn.textContent = '−1';
+    btn.addEventListener('click', () => removeFromDeck(kind, card.id));
+    li.appendChild(btn);
+    target.appendChild(li);
+  });
+}
+
+function renderDeck() {
+  renderDeckList(el.kaijuDeckList, state.deck.kaiju, 'kaiju');
+  renderDeckList(el.mainDeckList, state.deck.main, 'main');
+
+  const kaijuTotal = getDeckCount(state.deck.kaiju);
+  const mainTotal = getDeckCount(state.deck.main);
+  const adv2 = getAdvance2Count();
+
+  el.kaijuSummary.textContent = `${kaijuTotal}/4`;
+  el.mainSummary.textContent = `${mainTotal}/50 (進攻2:${adv2}/10)`;
 }
 
 function render() {
@@ -102,6 +172,14 @@ function render() {
       else image.src = fallback;
       image.onerror = null;
     };
+    image.addEventListener('click', () => {
+      el.modalImage.src = image.currentSrc || image.src;
+      el.imageModal.showModal();
+    });
+
+    node.querySelector('.card-title').textContent = card.name;
+    node.querySelector('.card-id').textContent = card.id;
+    node.querySelector('.meta').textContent = `${card.setCode} / ${card.color} / ${card.type} / 等級${card.grade ?? '-'} / ${card.power ?? 0}`;
 
     node.querySelector('.card-title').textContent = `${card.name} [${card.id}]`;
     node.querySelector('.meta').textContent = `${card.color} / ${card.type} / 等級${card.grade ?? '-'} / ${card.power ?? 0}`;
@@ -123,6 +201,9 @@ function render() {
       setOwned(card.id, (state.owned[card.id] || 0) - 1);
       qtyInput.value = state.owned[card.id] || 0;
     });
+
+    node.querySelector('.add-kaiju').addEventListener('click', () => addToKaijuDeck(card));
+    node.querySelector('.add-main').addEventListener('click', () => addToMainDeck(card));
 
     frag.appendChild(node);
   });
@@ -146,12 +227,17 @@ function renderStats() {
 
 function bindEvents() {
   el.search.addEventListener('input', e => { state.search = e.target.value; render(); });
+  el.setFilter.addEventListener('change', e => { state.setCode = e.target.value; render(); });
   el.colorFilter.addEventListener('change', e => { state.color = e.target.value; render(); });
   el.typeFilter.addEventListener('change', e => { state.type = e.target.value; render(); });
   el.gradeFilter.addEventListener('change', e => { state.grade = e.target.value; render(); });
   el.sortBy.addEventListener('change', e => { state.sortBy = e.target.value; render(); });
 
   el.resetFilters.addEventListener('click', () => {
+    state.search = state.setCode = state.color = state.type = state.grade = '';
+    state.sortBy = 'id';
+    el.search.value = '';
+    el.setFilter.value = '';
     state.search = state.color = state.type = state.grade = '';
     state.sortBy = 'id';
     el.search.value = '';
@@ -164,6 +250,10 @@ function bindEvents() {
 
   el.exportBtn.addEventListener('click', () => {
     const data = {
+      version: 2,
+      exportedAt: new Date().toISOString(),
+      owned: state.owned,
+      deck: state.deck
       version: 1,
       exportedAt: new Date().toISOString(),
       owned: state.owned
@@ -182,6 +272,12 @@ function bindEvents() {
     try {
       const data = JSON.parse(await file.text());
       if (!data.owned || typeof data.owned !== 'object') throw new Error('invalid');
+      state.owned = normalizeOwned(data.owned);
+      state.deck = normalizeDeck(data.deck || {});
+      saveOwned();
+      saveDeck();
+      render();
+      renderDeck();
       state.owned = data.owned;
       save();
       render();
@@ -191,8 +287,21 @@ function bindEvents() {
     }
     e.target.value = '';
   });
+
+  el.clearDeckBtn.addEventListener('click', () => {
+    state.deck = { kaiju: {}, main: {} };
+    saveDeck();
+    setDeckMessage('デッキを初期化しました。');
+    renderDeck();
+  });
+
+  el.closeModal.addEventListener('click', () => el.imageModal.close());
+  el.imageModal.addEventListener('click', e => {
+    if (e.target === el.imageModal) el.imageModal.close();
+  });
 }
 
 initFilters();
 bindEvents();
 render();
+renderDeck();

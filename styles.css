@@ -75,7 +75,7 @@ button:hover { filter: brightness(1.15); }
   border-radius: 12px;
   padding: 12px;
 }
-.stat-grid span { display: block; font-size: 1.6rem; font-weight: 800; color: var(--accent-2); }
+.stat-grid span { display: block; font-size: 10vw; font-weight: 800; color: var(--accent-2); }
 .stat-grid small { color: var(--muted); }
 
 .deck-rule, .deck-message { margin: 0 0 8px; color: var(--muted); font-size: .9rem; }
